@@ -1,0 +1,4 @@
+*.keytab
+*.jks
+*.pem
+inventory.ini # 包含敏感 IP 信息
