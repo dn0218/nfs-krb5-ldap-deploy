@@ -50,3 +50,56 @@ Always follow the bottom-up approach when debugging this stack:
 | Permission Denied  | `mount(2): Permission denied`                 | `rpc.gssd` or `gssproxy` not running.     | Run `systemctl restart gssproxy rpc-gssd`.        |
 | Read-Only Access   | `Cannot create file: Permission denied`       | SELinux boolean blocking.                  | Run `setsebool -P nfs_export_all_rw 1`.           |
 
+## Essential Diagnostic Commands
+### Time Sync Check
+```Bash
+# Check if synchronized to a source
+chronyc sources -v
+
+# Check system drift
+chronyc tracking
+```
+
+### Kerberos Verification
+```Bash
+# Check local keytab principals and KVNO
+sudo klist -kt /etc/krb5.keytab
+
+# Test machine credentials manually
+sudo kinit -k -t /etc/krb5.keytab nfs/$(hostname -f)
+
+# List KDC database (Server side)
+sudo kadmin.local -q "listprincs"
+```
+
+### NFS & RPC Inspection
+```Bash
+# Check what the server is actually exporting
+sudo exportfs -v
+
+# Verify RPC services are registered
+rpcinfo -p localhost
+
+# Monitor GSS negotiation logs
+sudo journalctl -f -u gssproxy -u rpc-gssd
+```
+
+### SSSD & PAM
+```Bash
+# Clear SSSD cache (Fixes "ghost" user issues)
+sudo sss_cache -E
+sudo systemctl restart sssd
+
+# Verify PAM config for SSSD
+authselect current
+```
+## Maintenance Checklist
+1. SELinux: Ensure status is Enforcing but appropriate booleans are set. Do not disable.
+
+2. Firewalld: Verify nfs, mountd, rpc-bind, dns, and kerberos services are allowed.
+
+3. Permissions: Verify /etc/krb5.keytab is 600 and owned by root.
+
+4. Reverse DNS: Ensure PTR records are valid for all nodes.
+
+5. idmapd: Confirm Domain in /etc/idmapd.conf is identical on server and client.</IP_ADDRESS>
